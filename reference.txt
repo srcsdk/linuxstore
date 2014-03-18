@@ -3,3 +3,8 @@ vlc
 libreoffice
 terminator
 htop
+thunar
+scrot
+gimp
+audacity
+transmission-gtk
