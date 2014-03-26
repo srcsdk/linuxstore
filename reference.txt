@@ -8,3 +8,8 @@ scrot
 gimp
 audacity
 transmission-gtk
+pidgin
+hexchat
+bleachbit
+gparted
+filezilla
