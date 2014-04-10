@@ -13,3 +13,8 @@ hexchat
 bleachbit
 gparted
 filezilla
+wireshark-qt
+nmap
+aircrack-ng
+john
+hydra
