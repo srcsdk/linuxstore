@@ -18,3 +18,8 @@ nmap
 aircrack-ng
 john
 hydra
+virtualbox
+qemu
+vagrant
+neofetch
+screenfetch
