@@ -23,3 +23,8 @@ qemu
 vagrant
 neofetch
 screenfetch
+tor-browser
+openvpn
+macchanger
+proxychains-ng
+hashcat
