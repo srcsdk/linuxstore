@@ -28,3 +28,8 @@ openvpn
 macchanger
 proxychains-ng
 hashcat
+cmatrix
+cowsay
+figlet
+lolcat
+sl
