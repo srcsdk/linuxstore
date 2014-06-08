@@ -33,3 +33,10 @@ cowsay
 figlet
 lolcat
 sl
+tmux
+ranger
+mc
+ncdu
+iotop
+lsof
+strace
