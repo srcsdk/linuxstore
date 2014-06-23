@@ -1,0 +1,5 @@
+ls : list everything in folder
+cd <folder> : right click folder
+cd .. : back out of folder
+mkdir : make folder
+touch <file.txt> : make file.txt
