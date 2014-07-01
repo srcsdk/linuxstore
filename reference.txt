@@ -40,3 +40,9 @@ ncdu
 iotop
 lsof
 strace
+ettercap
+metasploit
+nikto
+sqlmap
+tcpdump
+netcat
