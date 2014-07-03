@@ -3,3 +3,7 @@ cd <folder> : right click folder
 cd .. : back out of folder
 mkdir : make folder
 touch <file.txt> : make file.txt
+cp <file> <dest> : copy file to dest
+mv <file> <dest> : move or rename file
+rm <file> : delete file
+rm -r <folder> : delete folder and everything in it
