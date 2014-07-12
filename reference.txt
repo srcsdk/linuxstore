@@ -46,3 +46,10 @@ nikto
 sqlmap
 tcpdump
 netcat
+curl
+wget
+git
+openssh
+rsync
+tree
+the_silver_searcher
