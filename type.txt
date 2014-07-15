@@ -7,3 +7,8 @@ cp <file> <dest> : copy file to dest
 mv <file> <dest> : move or rename file
 rm <file> : delete file
 rm -r <folder> : delete folder and everything in it
+cat <file> : print file contents
+grep <word> <file> : search for word in file
+| : pipe output to next command
+> : send output to file
+>> : add output to end of file
