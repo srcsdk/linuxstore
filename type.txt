@@ -12,3 +12,8 @@ grep <word> <file> : search for word in file
 | : pipe output to next command
 > : send output to file
 >> : add output to end of file
+chmod +x <file> : make file runnable
+chmod 777 <file> : let everyone do everything to file
+chown <user> <file> : change who owns file
+sudo <command> : run as admin
+su : switch to root
