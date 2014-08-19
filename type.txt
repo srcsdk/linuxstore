@@ -17,3 +17,8 @@ chmod 777 <file> : let everyone do everything to file
 chown <user> <file> : change who owns file
 sudo <command> : run as admin
 su : switch to root
+tar -xvf <file.tar> : extract tar
+tar -czvf <name.tar.gz> <folder> : compress folder
+wget <url> : download from url
+curl <url> : get page content
+ssh <user>@<ip> : connect to remote machine
