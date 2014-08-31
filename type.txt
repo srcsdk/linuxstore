@@ -22,3 +22,12 @@ tar -czvf <name.tar.gz> <folder> : compress folder
 wget <url> : download from url
 curl <url> : get page content
 ssh <user>@<ip> : connect to remote machine
+scp <file> <user>@<ip>:<path> : copy file to remote machine
+ps aux : show all running processes
+kill <pid> : stop a process
+top : live process monitor
+df -h : show disk space
+du -sh <folder> : show folder size
+ifconfig : show network info
+ping <ip> : check if something is alive
+traceroute <ip> : show path to destination
