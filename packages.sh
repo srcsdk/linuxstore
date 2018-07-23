@@ -1,89 +1,57 @@
 #!/bin/bash
-# install arch packages
+# install packages - base system + security tools
 
-packages=(
-    firefox
-    vlc
-    libreoffice
-    terminator
-    htop
-    thunar
-    scrot
-    gimp
-    audacity
-    transmission-gtk
-    pidgin
-    hexchat
-    bleachbit
-    gparted
-    filezilla
-    wireshark-qt
-    nmap
-    aircrack-ng
-    john
-    hydra
-    virtualbox
-    qemu
-    vagrant
-    neofetch
-    screenfetch
-    tor-browser
-    openvpn
-    macchanger
-    proxychains-ng
-    hashcat
-    cmatrix
-    cowsay
-    figlet
-    lolcat
-    sl
-    tmux
-    ranger
-    mc
-    ncdu
-    iotop
-    lsof
-    strace
-    ettercap
-    metasploit
-    nikto
-    sqlmap
-    tcpdump
-    netcat
-    curl
-    wget
-    git
-    openssh
-    rsync
-    tree
-    the_silver_searcher
-    rxvt-unicode
-    zsh
-    vim
-    emacs
-    python
-    ruby
-    gcc
-    make
-    cmake
-    nodejs
-    npm
-    docker
-    keepassxc
-    clamav
-    rkhunter
-    lynis
+base_packages=(
+    firefox vlc libreoffice terminator htop thunar scrot gimp audacity
+    transmission-gtk bleachbit gparted filezilla tmux ranger mc ncdu
+    iotop lsof strace rxvt-unicode zsh vim neofetch curl wget git
+    openssh rsync tree the_silver_searcher python ruby gcc make cmake
+    nodejs npm docker keepassxc
 )
 
-echo "installing ${#packages[@]} packages..."
+security_packages=(
+    nmap wireshark-qt tcpdump netcat aircrack-ng ettercap nikto sqlmap
+    john hydra hashcat metasploit proxychains-ng macchanger tor-browser
+    openvpn clamav rkhunter lynis
+    burpsuite
+    wpscan
+    gobuster
+    dirb
+    enum4linux
+    smbclient
+    nbtscan
+    dnsenum
+    dnsrecon
+    fierce
+    recon-ng
+    theharvester
+    maltego
+    beef-xss
+    zaproxy
+    mitmproxy
+    responder
+    impacket
+    crackmapexec
+    bloodhound
+)
 
-for pkg in "${packages[@]}"; do
-    if ! pacman -Qi "$pkg" &>/dev/null; then
-        echo "installing $pkg..."
-        sudo pacman -S --noconfirm "$pkg" 2>/dev/null || echo "  not found in repos: $pkg"
-    else
-        echo "already installed: $pkg"
-    fi
-done
+install_packages() {
+    local name="$1"
+    shift
+    local pkgs=("$@")
+    echo "=== $name (${#pkgs[@]} packages) ==="
+    for pkg in "${pkgs[@]}"; do
+        if ! pacman -Qi "$pkg" &>/dev/null; then
+            sudo pacman -S --noconfirm "$pkg" 2>/dev/null
+            if [ $? -ne 0 ]; then
+                yay -S --noconfirm "$pkg" 2>/dev/null || echo "  skip: $pkg"
+            fi
+        fi
+    done
+    echo ""
+}
+
+install_packages "base" "${base_packages[@]}"
+install_packages "security" "${security_packages[@]}"
 
 echo "done"
