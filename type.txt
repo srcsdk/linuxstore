@@ -31,3 +31,18 @@ du -sh <folder> : show folder size
 ifconfig : show network info
 ping <ip> : check if something is alive
 traceroute <ip> : show path to destination
+ip addr : show ip addresses
+ip route : show routing table
+ss -tlnp : show listening ports
+arp -n : show arp table
+iw dev <iface> scan : scan wifi networks
+iw dev <iface> info : show interface info
+ip link set <iface> down/up : disable/enable interface
+find / -perm -4000 : find suid binaries
+stat <file> : show file details
+awk '{print $1}' : print first column
+sed 's/old/new/' : replace text
+xargs -P <n> : run in parallel
+nc <host> <port> : connect to port
+echo > /dev/tcp/<host>/<port> : test if port open
+tcpdump -i <iface> : capture packets
