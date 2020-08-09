@@ -1,0 +1,293 @@
+#!/usr/bin/env python3
+"""linux package browser - gui for discovering and installing packages"""
+
+import json
+import os
+import subprocess
+import sys
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+PACKAGES_FILE = os.path.join(os.path.dirname(__file__), "packages.json")
+
+
+def load_packages():
+    """load package database"""
+    with open(PACKAGES_FILE, "r") as f:
+        return json.load(f)
+
+
+def check_installed(package_name):
+    """check if a package is installed"""
+    try:
+        result = subprocess.run(
+            ["pacman", "-Qi", package_name],
+            capture_output=True, timeout=5
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
+def install_package(package_name):
+    """install a package with pacman, fallback to yay"""
+    try:
+        result = subprocess.run(
+            ["sudo", "pacman", "-S", "--noconfirm", package_name],
+            capture_output=True, text=True, timeout=120
+        )
+        if result.returncode == 0:
+            return True, "installed with pacman"
+
+        # try aur
+        result = subprocess.run(
+            ["yay", "-S", "--noconfirm", package_name],
+            capture_output=True, text=True, timeout=300
+        )
+        if result.returncode == 0:
+            return True, "installed with yay (aur)"
+
+        return False, result.stderr[:200]
+    except subprocess.TimeoutExpired:
+        return False, "timeout"
+    except FileNotFoundError:
+        return False, "pacman not found"
+
+
+class PackageStore:
+    """main application window"""
+
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("linux package browser")
+        self.root.geometry("800x600")
+        self.root.configure(bg="#1e1e1e")
+
+        self.packages = load_packages()
+        self.current_view = "essential"
+
+        self.setup_styles()
+        self.build_ui()
+        self.show_tab("essential")
+
+    def setup_styles(self):
+        """configure ttk styles"""
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        style.configure("TFrame", background="#1e1e1e")
+        style.configure("TLabel", background="#1e1e1e",
+                        foreground="#cccccc", font=("monospace", 10))
+        style.configure("Title.TLabel", font=("monospace", 14, "bold"),
+                        foreground="#ffffff")
+        style.configure("TButton", font=("monospace", 10))
+        style.configure("Tab.TButton", font=("monospace", 11),
+                        padding=8)
+        style.configure("Install.TButton", font=("monospace", 9))
+
+    def build_ui(self):
+        """build the main interface"""
+        # header
+        header = ttk.Frame(self.root)
+        header.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Label(header, text="packages",
+                  style="Title.TLabel").pack(side=tk.LEFT)
+
+        # search
+        self.search_var = tk.StringVar()
+        self.search_var.trace("w", self.on_search)
+        search_entry = ttk.Entry(header, textvariable=self.search_var,
+                                 width=30, font=("monospace", 10))
+        search_entry.pack(side=tk.RIGHT, padx=5)
+        ttk.Label(header, text="search:").pack(side=tk.RIGHT)
+
+        # tabs
+        tab_frame = ttk.Frame(self.root)
+        tab_frame.pack(fill=tk.X, padx=10)
+
+        tabs = ["essential", "popular", "all"]
+        self.tab_buttons = {}
+        for tab in tabs:
+            btn = ttk.Button(tab_frame, text=tab, style="Tab.TButton",
+                             command=lambda t=tab: self.show_tab(t))
+            btn.pack(side=tk.LEFT, padx=2)
+            self.tab_buttons[tab] = btn
+
+        # category sidebar (for 'all' view)
+        self.sidebar = ttk.Frame(self.root)
+
+        # package list
+        list_frame = ttk.Frame(self.root)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # scrollable canvas
+        self.canvas = tk.Canvas(list_frame, bg="#1e1e1e",
+                                highlightthickness=0)
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL,
+                                  command=self.canvas.yview)
+        self.scrollable = ttk.Frame(self.canvas)
+
+        self.scrollable.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable,
+                                  anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # mouse wheel scrolling
+        self.canvas.bind_all("<MouseWheel>",
+                             lambda e: self.canvas.yview_scroll(
+                                 int(-1*(e.delta/120)), "units"))
+        self.canvas.bind_all("<Button-4>",
+                             lambda e: self.canvas.yview_scroll(-3, "units"))
+        self.canvas.bind_all("<Button-5>",
+                             lambda e: self.canvas.yview_scroll(3, "units"))
+
+        # status bar
+        self.status_var = tk.StringVar(value="ready")
+        status = ttk.Label(self.root, textvariable=self.status_var)
+        status.pack(fill=tk.X, padx=10, pady=5)
+
+    def show_tab(self, tab):
+        """switch to a tab"""
+        self.current_view = tab
+
+        # clear sidebar
+        self.sidebar.pack_forget()
+
+        if tab == "essential":
+            self.display_packages(self.packages["essential"])
+        elif tab == "popular":
+            self.display_packages(self.packages["popular"])
+        elif tab == "all":
+            self.show_all_view()
+
+    def show_all_view(self):
+        """show all packages organized by category"""
+        # show sidebar
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5,
+                          before=self.canvas.master)
+
+        # clear sidebar
+        for widget in self.sidebar.winfo_children():
+            widget.destroy()
+
+        ttk.Label(self.sidebar, text="categories",
+                  font=("monospace", 10, "bold")).pack(pady=5)
+
+        categories = list(self.packages["all"].keys())
+        for cat in categories:
+            count = len(self.packages["all"][cat])
+            btn = ttk.Button(
+                self.sidebar,
+                text=f"{cat} ({count})",
+                command=lambda c=cat: self.show_category(c)
+            )
+            btn.pack(fill=tk.X, padx=2, pady=1)
+
+        # show first category
+        if categories:
+            self.show_category(categories[0])
+
+    def show_category(self, category):
+        """show packages in a category"""
+        pkgs = self.packages["all"].get(category, [])
+        self.display_packages(pkgs, category)
+
+    def display_packages(self, packages, header=None):
+        """display a list of packages"""
+        for widget in self.scrollable.winfo_children():
+            widget.destroy()
+
+        if header:
+            ttk.Label(self.scrollable, text=header,
+                      font=("monospace", 12, "bold")).pack(
+                anchor="w", pady=(0, 5))
+
+        for pkg in packages:
+            self.create_package_row(pkg)
+
+        self.status_var.set(f"{len(packages)} packages")
+
+    def create_package_row(self, pkg):
+        """create a row for a package"""
+        row = ttk.Frame(self.scrollable)
+        row.pack(fill=tk.X, pady=2)
+
+        name = pkg["name"]
+        desc = pkg["desc"]
+
+        ttk.Label(row, text=name, font=("monospace", 10, "bold"),
+                  foreground="#4ec9b0", width=30,
+                  anchor="w").pack(side=tk.LEFT)
+
+        ttk.Label(row, text=desc, foreground="#888888",
+                  anchor="w").pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        install_btn = ttk.Button(
+            row, text="install", style="Install.TButton",
+            command=lambda n=name: self.install(n)
+        )
+        install_btn.pack(side=tk.RIGHT, padx=5)
+
+    def install(self, package_name):
+        """install a package"""
+        self.status_var.set(f"installing {package_name}...")
+        self.root.update()
+
+        success, msg = install_package(package_name)
+        if success:
+            self.status_var.set(f"{package_name}: {msg}")
+        else:
+            self.status_var.set(f"failed: {msg}")
+            messagebox.showerror("install failed",
+                                 f"could not install {package_name}:\n{msg}")
+
+    def on_search(self, *args):
+        """filter packages by search term"""
+        query = self.search_var.get().lower()
+        if not query:
+            self.show_tab(self.current_view)
+            return
+
+        # search all packages
+        results = []
+        for pkg in self.packages["essential"]:
+            if query in pkg["name"].lower() or query in pkg["desc"].lower():
+                results.append(pkg)
+        for pkg in self.packages["popular"]:
+            if query in pkg["name"].lower() or query in pkg["desc"].lower():
+                if pkg not in results:
+                    results.append(pkg)
+        for cat_pkgs in self.packages["all"].values():
+            for pkg in cat_pkgs:
+                if query in pkg["name"].lower() or query in pkg["desc"].lower():
+                    if pkg not in results:
+                        results.append(pkg)
+
+        self.display_packages(results, f"search: {query}")
+
+    def run(self):
+        """start the application"""
+        self.root.mainloop()
+
+
+def main():
+    if not os.path.exists(PACKAGES_FILE):
+        print(f"missing {PACKAGES_FILE}", file=sys.stderr)
+        sys.exit(1)
+
+    app = PackageStore()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()
