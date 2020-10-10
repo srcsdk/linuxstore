@@ -251,6 +251,31 @@ class PackageStore:
             messagebox.showerror("install failed",
                                  f"could not install {package_name}:\n{msg}")
 
+    def search_packages(self, query):
+        """search all package lists for matches"""
+        results = []
+        seen = set()
+        sources = [
+            self.packages["essential"],
+            self.packages["popular"],
+        ]
+        for cat_pkgs in self.packages["all"].values():
+            sources.append(cat_pkgs)
+
+        for pkg_list in sources:
+            for pkg in pkg_list:
+                name = pkg["name"]
+                if name in seen:
+                    continue
+                if query in name.lower() or query in pkg["desc"].lower():
+                    results.append(pkg)
+                    seen.add(name)
+
+        # sort by name match first, then description match
+        results.sort(key=lambda p: (0 if query in p["name"].lower() else 1,
+                                    p["name"]))
+        return results
+
     def on_search(self, *args):
         """filter packages by search term"""
         query = self.search_var.get().lower()
@@ -258,22 +283,8 @@ class PackageStore:
             self.show_tab(self.current_view)
             return
 
-        # search all packages
-        results = []
-        for pkg in self.packages["essential"]:
-            if query in pkg["name"].lower() or query in pkg["desc"].lower():
-                results.append(pkg)
-        for pkg in self.packages["popular"]:
-            if query in pkg["name"].lower() or query in pkg["desc"].lower():
-                if pkg not in results:
-                    results.append(pkg)
-        for cat_pkgs in self.packages["all"].values():
-            for pkg in cat_pkgs:
-                if query in pkg["name"].lower() or query in pkg["desc"].lower():
-                    if pkg not in results:
-                        results.append(pkg)
-
-        self.display_packages(results, f"search: {query}")
+        results = self.search_packages(query)
+        self.display_packages(results, f"search: {query} ({len(results)} found)")
 
     def run(self):
         """start the application"""
