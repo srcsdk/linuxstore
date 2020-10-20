@@ -183,6 +183,18 @@ class PackageStore:
         ttk.Label(self.sidebar, text="categories",
                   font=("monospace", 10, "bold")).pack(pady=5)
 
+        # show all button
+        total = sum(len(v) for v in self.packages["all"].values())
+        all_btn = ttk.Button(
+            self.sidebar,
+            text=f"all ({total})",
+            command=self.show_all_categories
+        )
+        all_btn.pack(fill=tk.X, padx=2, pady=1)
+
+        ttk.Separator(self.sidebar, orient=tk.HORIZONTAL).pack(
+            fill=tk.X, padx=2, pady=3)
+
         categories = list(self.packages["all"].keys())
         for cat in categories:
             count = len(self.packages["all"][cat])
@@ -196,6 +208,13 @@ class PackageStore:
         # show first category
         if categories:
             self.show_category(categories[0])
+
+    def show_all_categories(self):
+        """show every package across all categories"""
+        all_pkgs = []
+        for cat_pkgs in self.packages["all"].values():
+            all_pkgs.extend(cat_pkgs)
+        self.display_packages(all_pkgs, "all categories")
 
     def show_category(self, category):
         """show packages in a category"""
