@@ -321,3 +321,45 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+class InstallProgress:
+    """show a progress window during package installation"""
+
+    def __init__(self, parent, package_name):
+        self.window = tk.Toplevel(parent)
+        self.window.title(f"installing {package_name}")
+        self.window.geometry("400x120")
+        self.window.configure(bg="#1e1e1e")
+        self.window.transient(parent)
+
+        ttk.Label(self.window, text=f"installing {package_name}...",
+                  font=("monospace", 10)).pack(pady=10)
+
+        self.progress = ttk.Progressbar(
+            self.window, mode="indeterminate", length=350
+        )
+        self.progress.pack(pady=5, padx=20)
+        self.progress.start(20)
+
+        self.status_label = ttk.Label(
+            self.window, text="running pacman...",
+            font=("monospace", 9), foreground="#888888"
+        )
+        self.status_label.pack(pady=5)
+
+    def update_status(self, text):
+        """update the status text"""
+        self.status_label.configure(text=text)
+        self.window.update()
+
+    def finish(self, success, message):
+        """stop progress and show result"""
+        self.progress.stop()
+        color = "#4ec9b0" if success else "#f44747"
+        self.status_label.configure(text=message, foreground=color)
+        self.window.after(2000, self.window.destroy)
+
+    def close(self):
+        """close the progress window"""
+        self.window.destroy()
