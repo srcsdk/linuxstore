@@ -363,3 +363,52 @@ class InstallProgress:
     def close(self):
         """close the progress window"""
         self.window.destroy()
+
+
+class PackageDetail:
+    """popup window showing package details"""
+
+    def __init__(self, parent, pkg):
+        self.window = tk.Toplevel(parent)
+        self.window.title(pkg["name"])
+        self.window.geometry("500x300")
+        self.window.configure(bg="#1e1e1e")
+        self.window.transient(parent)
+
+        name_label = ttk.Label(
+            self.window, text=pkg["name"],
+            font=("monospace", 14, "bold"), foreground="#4ec9b0"
+        )
+        name_label.pack(anchor="w", padx=15, pady=(15, 5))
+
+        desc_label = ttk.Label(
+            self.window, text=pkg["desc"],
+            font=("monospace", 10), foreground="#cccccc",
+            wraplength=460
+        )
+        desc_label.pack(anchor="w", padx=15, pady=5)
+
+        # check if installed
+        installed = check_installed(pkg["name"])
+        status_text = "installed" if installed else "not installed"
+        status_color = "#4ec9b0" if installed else "#888888"
+
+        ttk.Label(
+            self.window, text=f"status: {status_text}",
+            font=("monospace", 10), foreground=status_color
+        ).pack(anchor="w", padx=15, pady=5)
+
+        # buttons
+        btn_frame = ttk.Frame(self.window)
+        btn_frame.pack(anchor="w", padx=15, pady=15)
+
+        if not installed:
+            ttk.Button(
+                btn_frame, text="install",
+                command=lambda: self.window.destroy()
+            ).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(
+            btn_frame, text="close",
+            command=self.window.destroy
+        ).pack(side=tk.LEFT, padx=5)
