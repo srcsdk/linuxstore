@@ -412,3 +412,45 @@ class PackageDetail:
             btn_frame, text="close",
             command=self.window.destroy
         ).pack(side=tk.LEFT, padx=5)
+
+
+def list_installed_packages():
+    """get list of explicitly installed packages from pacman"""
+    try:
+        result = subprocess.run(
+            ["pacman", "-Qe"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return []
+
+        packages = []
+        for line in result.stdout.strip().split("\n"):
+            parts = line.strip().split(None, 1)
+            if parts:
+                name = parts[0]
+                version = parts[1] if len(parts) > 1 else ""
+                packages.append({"name": name, "version": version})
+        return packages
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+
+
+def get_package_info(package_name):
+    """get detailed info for an installed package"""
+    try:
+        result = subprocess.run(
+            ["pacman", "-Qi", package_name],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode != 0:
+            return None
+
+        info = {}
+        for line in result.stdout.split("\n"):
+            if ":" in line:
+                key, _, value = line.partition(":")
+                info[key.strip().lower()] = value.strip()
+        return info
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
