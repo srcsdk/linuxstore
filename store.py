@@ -454,3 +454,43 @@ def get_package_info(package_name):
         return info
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
+
+
+def check_updates():
+    """check for available package updates.
+
+    runs pacman -Qu to list packages with available updates.
+    returns list of dicts with name, current version, and new version.
+    """
+    try:
+        result = subprocess.run(
+            ["pacman", "-Qu"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0 and not result.stdout.strip():
+            return []
+
+        updates = []
+        for line in result.stdout.strip().split("\n"):
+            parts = line.strip().split()
+            if len(parts) >= 4:
+                updates.append({
+                    "name": parts[0],
+                    "current": parts[1],
+                    "new": parts[3],
+                })
+        return updates
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+
+
+def format_update_summary(updates):
+    """format update list for display"""
+    if not updates:
+        return "system is up to date"
+    lines = [f"{len(updates)} updates available:"]
+    for u in updates[:20]:
+        lines.append(f"  {u['name']} {u['current']} -> {u['new']}")
+    if len(updates) > 20:
+        lines.append(f"  ... and {len(updates) - 20} more")
+    return "\n".join(lines)
