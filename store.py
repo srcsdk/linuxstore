@@ -494,3 +494,26 @@ def format_update_summary(updates):
     if len(updates) > 20:
         lines.append(f"  ... and {len(updates) - 20} more")
     return "\n".join(lines)
+
+
+def uninstall_package(package_name):
+    """remove a package with pacman.
+
+    uses -Rs to also remove unneeded dependencies.
+    returns (success, message) tuple.
+    """
+    if not check_installed(package_name):
+        return False, f"{package_name} is not installed"
+
+    try:
+        result = subprocess.run(
+            ["sudo", "pacman", "-Rs", "--noconfirm", package_name],
+            capture_output=True, text=True, timeout=120
+        )
+        if result.returncode == 0:
+            return True, f"removed {package_name}"
+        return False, result.stderr[:200]
+    except subprocess.TimeoutExpired:
+        return False, "timeout during removal"
+    except FileNotFoundError:
+        return False, "pacman not found"
