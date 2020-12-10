@@ -517,3 +517,62 @@ def uninstall_package(package_name):
         return False, "timeout during removal"
     except FileNotFoundError:
         return False, "pacman not found"
+
+
+class SystemInfoPanel:
+    """display system information in a popup window"""
+
+    def __init__(self, parent):
+        self.window = tk.Toplevel(parent)
+        self.window.title("system info")
+        self.window.geometry("450x350")
+        self.window.configure(bg="#1e1e1e")
+        self.window.transient(parent)
+
+        ttk.Label(
+            self.window, text="system information",
+            font=("monospace", 12, "bold")
+        ).pack(anchor="w", padx=15, pady=(15, 10))
+
+        info_frame = ttk.Frame(self.window)
+        info_frame.pack(fill=tk.BOTH, expand=True, padx=15)
+
+        try:
+            from detect_os import system_report
+            report = system_report()
+
+            fields = [
+                ("distro", f"{report['distro']['name']} {report['distro']['version']}"),
+                ("kernel", report["kernel"]),
+                ("arch", report["hardware"]["arch"]),
+                ("cpu", report["hardware"]["cpu"][:40]),
+                ("cores", str(report["hardware"]["cores"])),
+                ("ram", f"{report['hardware']['ram_gb']} gb"),
+                ("pkg manager", report["package_manager"]["command"] or "unknown"),
+                ("python", report["python"]),
+            ]
+
+            for label, value in fields:
+                row = ttk.Frame(info_frame)
+                row.pack(fill=tk.X, pady=2)
+                ttk.Label(row, text=f"{label}:", width=14,
+                          foreground="#888888").pack(side=tk.LEFT)
+                ttk.Label(row, text=value,
+                          foreground="#4ec9b0").pack(side=tk.LEFT)
+
+            for gpu in report["hardware"].get("gpu", []):
+                row = ttk.Frame(info_frame)
+                row.pack(fill=tk.X, pady=2)
+                ttk.Label(row, text="gpu:", width=14,
+                          foreground="#888888").pack(side=tk.LEFT)
+                ttk.Label(row, text=f"{gpu['name'][:35]} ({gpu['vendor']})",
+                          foreground="#4ec9b0").pack(side=tk.LEFT)
+
+        except ImportError:
+            ttk.Label(info_frame, text="detect_os module not found",
+                      foreground="#f44747").pack(pady=20)
+
+        ttk.Button(
+            self.window, text="close",
+            command=self.window.destroy
+        ).pack(pady=10)
