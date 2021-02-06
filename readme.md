@@ -1,24 +1,26 @@
 ## linuxstore
 
-package browser for arch linux. gui for discovering and installing packages.
+gui package manager for linux. browse, search, and install packages with a tkinter interface.
 
 ### install
 
 ```
-python -m pip install tkinter  # usually included with python
+pip install linuxstore
 ```
 
 ### usage
 
 ```
-python store.py
+linuxstore
 ```
 
-browse packages by category: essential, popular, or all.
-search by name or description. click install to install with pacman.
+browse packages by category: essential, popular, or all. search by name or description. click install to install with your system package manager.
 
 ### files
 
-- `store.py`       : gui application
-- `packages.json`  : package database
-- `packages.sh`    : original bash installer
+- `store.py` - gui application
+- `layout.py` - interface layout
+- `detect_os.py` - os and package manager detection
+- `packages.json` - package database
+
+https://github.com/srcsdk/linuxstore
