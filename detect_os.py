@@ -6,12 +6,34 @@ import platform
 import re
 import subprocess
 
+PLATFORM = platform.system().lower()
+
 
 def get_distro():
-    """detect linux distribution"""
+    """detect operating system and distribution"""
     info = {"name": "unknown", "id": "unknown", "version": ""}
 
-    # try os-release first (most reliable)
+    if PLATFORM == "darwin":
+        info["name"] = "macOS"
+        info["id"] = "macos"
+        try:
+            result = subprocess.run(
+                ["sw_vers", "-productVersion"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                info["version"] = result.stdout.strip()
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            info["version"] = platform.mac_ver()[0]
+        return info
+
+    if PLATFORM == "windows":
+        info["name"] = "Windows"
+        info["id"] = "windows"
+        info["version"] = platform.version()
+        return info
+
+    # linux - try os-release first
     for path in ["/etc/os-release", "/usr/lib/os-release"]:
         if os.path.exists(path):
             with open(path, "r") as f:
@@ -28,8 +50,31 @@ def get_distro():
     return info
 
 
+def _cmd_exists(cmd):
+    """check if a command exists on the system"""
+    check = "where" if PLATFORM == "windows" else "which"
+    try:
+        result = subprocess.run(
+            [check, cmd], capture_output=True, timeout=5
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
 def get_package_manager():
     """detect available package manager"""
+    if PLATFORM == "darwin":
+        if _cmd_exists("brew"):
+            return {"command": "brew", "family": "macos"}
+        return {"command": None, "family": "macos"}
+
+    if PLATFORM == "windows":
+        for cmd, name in [("winget", "winget"), ("choco", "chocolatey")]:
+            if _cmd_exists(cmd):
+                return {"command": cmd, "family": name}
+        return {"command": None, "family": "windows"}
+
     managers = [
         ("pacman", "arch"),
         ("apt", "debian"),
@@ -41,14 +86,8 @@ def get_package_manager():
     ]
 
     for cmd, family in managers:
-        try:
-            result = subprocess.run(
-                ["which", cmd], capture_output=True, timeout=5
-            )
-            if result.returncode == 0:
-                return {"command": cmd, "family": family}
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+        if _cmd_exists(cmd):
+            return {"command": cmd, "family": family}
 
     return {"command": None, "family": "unknown"}
 
@@ -64,44 +103,85 @@ def get_hardware():
     }
 
     # cpu info
-    try:
-        with open("/proc/cpuinfo", "r") as f:
-            for line in f:
-                if line.startswith("model name"):
-                    info["cpu"] = line.split(":", 1)[1].strip()
-                    break
-    except FileNotFoundError:
-        pass
+    if PLATFORM == "darwin":
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                info["cpu"] = result.stdout.strip()
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+    elif PLATFORM == "windows":
+        info["cpu"] = platform.processor() or "unknown"
+    else:
+        try:
+            with open("/proc/cpuinfo", "r") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        info["cpu"] = line.split(":", 1)[1].strip()
+                        break
+        except FileNotFoundError:
+            pass
 
     # ram
-    try:
-        with open("/proc/meminfo", "r") as f:
-            for line in f:
-                if line.startswith("MemTotal"):
-                    kb = int(re.search(r"\d+", line).group())
-                    info["ram_gb"] = round(kb / 1024 / 1024, 1)
-                    break
-    except FileNotFoundError:
-        pass
+    if PLATFORM == "darwin":
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                info["ram_gb"] = round(int(result.stdout.strip()) / 1024**3, 1)
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            pass
+    elif PLATFORM == "windows":
+        try:
+            result = subprocess.run(
+                ["wmic", "computersystem", "get", "totalphysicalmemory"],
+                capture_output=True, text=True, timeout=5
+            )
+            for line in result.stdout.strip().split("\n"):
+                line = line.strip()
+                if line.isdigit():
+                    info["ram_gb"] = round(int(line) / 1024**3, 1)
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            pass
+    else:
+        try:
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if line.startswith("MemTotal"):
+                        kb = int(re.search(r"\d+", line).group())
+                        info["ram_gb"] = round(kb / 1024 / 1024, 1)
+                        break
+        except FileNotFoundError:
+            pass
 
     # gpu detection
-    try:
-        result = subprocess.run(
-            ["lspci"], capture_output=True, text=True, timeout=5
-        )
-        for line in result.stdout.split("\n"):
-            if "VGA" in line or "3D" in line or "Display" in line:
-                gpu_name = line.split(":", 2)[-1].strip()
-                vendor = "unknown"
-                if "NVIDIA" in line.upper() or "nvidia" in line:
-                    vendor = "nvidia"
-                elif "AMD" in line.upper() or "ATI" in line.upper():
-                    vendor = "amd"
-                elif "Intel" in line:
-                    vendor = "intel"
-                info["gpu"].append({"name": gpu_name, "vendor": vendor})
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    if PLATFORM != "windows":
+        try:
+            cmd = ["system_profiler", "SPDisplaysDataType"] if PLATFORM == "darwin" else ["lspci"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            for line in result.stdout.split("\n"):
+                if PLATFORM == "darwin":
+                    if "Chipset Model" in line:
+                        gpu_name = line.split(":", 1)[1].strip()
+                        info["gpu"].append({"name": gpu_name, "vendor": "apple"})
+                else:
+                    if "VGA" in line or "3D" in line or "Display" in line:
+                        gpu_name = line.split(":", 2)[-1].strip()
+                        vendor = "unknown"
+                        if "NVIDIA" in line.upper():
+                            vendor = "nvidia"
+                        elif "AMD" in line.upper() or "ATI" in line.upper():
+                            vendor = "amd"
+                        elif "Intel" in line:
+                            vendor = "intel"
+                        info["gpu"].append({"name": gpu_name, "vendor": vendor})
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
 
     return info
 

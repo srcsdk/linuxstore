@@ -17,41 +17,67 @@ def load_packages():
         return json.load(f)
 
 
+def _get_pkg_mgr():
+    """get detected package manager info"""
+    try:
+        from detect_os import get_package_manager
+        return get_package_manager()
+    except ImportError:
+        return {"command": None, "family": "unknown"}
+
+
 def check_installed(package_name):
     """check if a package is installed"""
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
+    if not cmd:
+        return False
+
+    check_cmds = {
+        "pacman": ["pacman", "-Qi", package_name],
+        "apt": ["dpkg", "-s", package_name],
+        "dnf": ["rpm", "-q", package_name],
+        "zypper": ["rpm", "-q", package_name],
+        "brew": ["brew", "list", package_name],
+        "winget": ["winget", "list", "--name", package_name],
+        "choco": ["choco", "list", "--local-only", package_name],
+    }
+    args = check_cmds.get(cmd, [cmd, "list", package_name])
     try:
-        result = subprocess.run(
-            ["pacman", "-Qi", package_name],
-            capture_output=True, timeout=5
-        )
+        result = subprocess.run(args, capture_output=True, timeout=10)
         return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
 
 
 def install_package(package_name):
-    """install a package with pacman, fallback to yay"""
+    """install a package using the detected package manager"""
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
+    if not cmd:
+        return False, "no package manager detected"
+
+    install_cmds = {
+        "pacman": ["sudo", "pacman", "-S", "--noconfirm", package_name],
+        "apt": ["sudo", "apt", "install", "-y", package_name],
+        "dnf": ["sudo", "dnf", "install", "-y", package_name],
+        "zypper": ["sudo", "zypper", "install", "-y", package_name],
+        "brew": ["brew", "install", package_name],
+        "winget": ["winget", "install", "--accept-package-agreements", package_name],
+        "choco": ["choco", "install", "-y", package_name],
+    }
+    args = install_cmds.get(cmd, [cmd, "install", package_name])
     try:
         result = subprocess.run(
-            ["sudo", "pacman", "-S", "--noconfirm", package_name],
-            capture_output=True, text=True, timeout=120
+            args, capture_output=True, text=True, timeout=300
         )
         if result.returncode == 0:
-            return True, "installed with pacman"
-
-        # try aur
-        result = subprocess.run(
-            ["yay", "-S", "--noconfirm", package_name],
-            capture_output=True, text=True, timeout=300
-        )
-        if result.returncode == 0:
-            return True, "installed with yay (aur)"
-
+            return True, f"installed with {cmd}"
         return False, result.stderr[:200]
     except subprocess.TimeoutExpired:
         return False, "timeout"
     except FileNotFoundError:
-        return False, "pacman not found"
+        return False, f"{cmd} not found"
 
 
 class PackageStore:
@@ -415,11 +441,25 @@ class PackageDetail:
 
 
 def list_installed_packages():
-    """get list of explicitly installed packages from pacman"""
+    """get list of explicitly installed packages"""
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
+
+    list_cmds = {
+        "pacman": ["pacman", "-Qe"],
+        "apt": ["dpkg", "--get-selections"],
+        "dnf": ["dnf", "list", "installed"],
+        "brew": ["brew", "list", "--versions"],
+        "winget": ["winget", "list"],
+        "choco": ["choco", "list", "--local-only"],
+    }
+    args = list_cmds.get(cmd)
+    if not args:
+        return []
+
     try:
         result = subprocess.run(
-            ["pacman", "-Qe"],
-            capture_output=True, text=True, timeout=10
+            args, capture_output=True, text=True, timeout=30
         )
         if result.returncode != 0:
             return []
@@ -427,7 +467,7 @@ def list_installed_packages():
         packages = []
         for line in result.stdout.strip().split("\n"):
             parts = line.strip().split(None, 1)
-            if parts:
+            if parts and not parts[0].startswith(("-", "=", "Listing")):
                 name = parts[0]
                 version = parts[1] if len(parts) > 1 else ""
                 packages.append({"name": name, "version": version})
@@ -438,10 +478,23 @@ def list_installed_packages():
 
 def get_package_info(package_name):
     """get detailed info for an installed package"""
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
+
+    info_cmds = {
+        "pacman": ["pacman", "-Qi", package_name],
+        "apt": ["apt", "show", package_name],
+        "dnf": ["dnf", "info", package_name],
+        "brew": ["brew", "info", package_name],
+        "winget": ["winget", "show", package_name],
+    }
+    args = info_cmds.get(cmd)
+    if not args:
+        return None
+
     try:
         result = subprocess.run(
-            ["pacman", "-Qi", package_name],
-            capture_output=True, text=True, timeout=5
+            args, capture_output=True, text=True, timeout=10
         )
         if result.returncode != 0:
             return None
@@ -457,27 +510,37 @@ def get_package_info(package_name):
 
 
 def check_updates():
-    """check for available package updates.
+    """check for available package updates"""
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
 
-    runs pacman -Qu to list packages with available updates.
-    returns list of dicts with name, current version, and new version.
-    """
+    update_cmds = {
+        "pacman": ["pacman", "-Qu"],
+        "apt": ["apt", "list", "--upgradable"],
+        "dnf": ["dnf", "check-update"],
+        "brew": ["brew", "outdated"],
+        "winget": ["winget", "upgrade"],
+        "choco": ["choco", "outdated"],
+    }
+    args = update_cmds.get(cmd)
+    if not args:
+        return []
+
     try:
         result = subprocess.run(
-            ["pacman", "-Qu"],
-            capture_output=True, text=True, timeout=30
+            args, capture_output=True, text=True, timeout=30
         )
-        if result.returncode != 0 and not result.stdout.strip():
+        if not result.stdout.strip():
             return []
 
         updates = []
         for line in result.stdout.strip().split("\n"):
             parts = line.strip().split()
-            if len(parts) >= 4:
+            if len(parts) >= 2 and not parts[0].startswith(("Listing", "-", "=")):
                 updates.append({
                     "name": parts[0],
-                    "current": parts[1],
-                    "new": parts[3],
+                    "current": parts[1] if len(parts) > 1 else "",
+                    "new": parts[3] if len(parts) > 3 else parts[-1],
                 })
         return updates
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -497,18 +560,27 @@ def format_update_summary(updates):
 
 
 def uninstall_package(package_name):
-    """remove a package with pacman.
-
-    uses -Rs to also remove unneeded dependencies.
-    returns (success, message) tuple.
-    """
+    """remove a package using the detected package manager"""
     if not check_installed(package_name):
         return False, f"{package_name} is not installed"
 
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
+    if not cmd:
+        return False, "no package manager detected"
+
+    remove_cmds = {
+        "pacman": ["sudo", "pacman", "-Rs", "--noconfirm", package_name],
+        "apt": ["sudo", "apt", "remove", "-y", package_name],
+        "dnf": ["sudo", "dnf", "remove", "-y", package_name],
+        "brew": ["brew", "uninstall", package_name],
+        "winget": ["winget", "uninstall", package_name],
+        "choco": ["choco", "uninstall", "-y", package_name],
+    }
+    args = remove_cmds.get(cmd, [cmd, "remove", package_name])
     try:
         result = subprocess.run(
-            ["sudo", "pacman", "-Rs", "--noconfirm", package_name],
-            capture_output=True, text=True, timeout=120
+            args, capture_output=True, text=True, timeout=120
         )
         if result.returncode == 0:
             return True, f"removed {package_name}"
@@ -516,7 +588,7 @@ def uninstall_package(package_name):
     except subprocess.TimeoutExpired:
         return False, "timeout during removal"
     except FileNotFoundError:
-        return False, "pacman not found"
+        return False, f"{cmd} not found"
 
 
 class SystemInfoPanel:
