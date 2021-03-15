@@ -85,7 +85,7 @@ class PackageStore:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("linux package browser")
+        self.root.title("linuxstore")
         self.root.geometry("800x600")
         self.root.configure(bg="#1e1e1e")
 
@@ -132,7 +132,7 @@ class PackageStore:
         tab_frame = ttk.Frame(self.root)
         tab_frame.pack(fill=tk.X, padx=10)
 
-        tabs = ["essential", "popular", "all"]
+        tabs = ["essential", "popular", "all", "installed", "updates"]
         self.tab_buttons = {}
         for tab in tabs:
             btn = ttk.Button(tab_frame, text=tab, style="Tab.TButton",
@@ -195,6 +195,10 @@ class PackageStore:
             self.display_packages(self.packages["popular"])
         elif tab == "all":
             self.show_all_view()
+        elif tab == "installed":
+            self.show_installed()
+        elif tab == "updates":
+            self.show_updates()
 
     def show_all_view(self):
         """show all packages organized by category"""
@@ -246,6 +250,26 @@ class PackageStore:
         """show packages in a category"""
         pkgs = self.packages["all"].get(category, [])
         self.display_packages(pkgs, category)
+
+    def show_installed(self):
+        """show currently installed packages"""
+        self.sidebar.pack_forget()
+        installed = list_installed_packages()
+        pkgs = [{"name": p["name"], "desc": p.get("version", "")} for p in installed[:100]]
+        self.display_packages(pkgs, f"installed ({len(installed)} packages)")
+
+    def show_updates(self):
+        """show available updates"""
+        self.sidebar.pack_forget()
+        self.status_var.set("checking for updates...")
+        self.root.update()
+        updates = check_updates()
+        if not updates:
+            self.display_packages([], "no updates available")
+        else:
+            pkgs = [{"name": u["name"], "desc": f"{u['current']} -> {u['new']}"} for u in updates]
+            self.display_packages(pkgs, f"{len(updates)} updates available")
+        self.status_var.set("ready")
 
     def display_packages(self, packages, header=None):
         """display a list of packages"""
