@@ -215,6 +215,56 @@ def system_report():
     }
 
 
+def check_resources():
+    """return dict with disk space, memory info, and cpu count"""
+    resources = {
+        "disk_free_gb": 0,
+        "disk_total_gb": 0,
+        "mem_total_kb": 0,
+        "mem_available_kb": 0,
+        "cpu_count": os.cpu_count() or 1,
+    }
+
+    # disk space via os.statvfs
+    try:
+        st = os.statvfs("/")
+        resources["disk_total_gb"] = round(
+            (st.f_blocks * st.f_frsize) / (1024 ** 3), 1
+        )
+        resources["disk_free_gb"] = round(
+            (st.f_bavail * st.f_frsize) / (1024 ** 3), 1
+        )
+    except (OSError, AttributeError):
+        pass
+
+    # memory from /proc/meminfo (linux)
+    try:
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemTotal"):
+                    match = re.search(r"\d+", line)
+                    if match:
+                        resources["mem_total_kb"] = int(match.group())
+                elif line.startswith("MemAvailable"):
+                    match = re.search(r"\d+", line)
+                    if match:
+                        resources["mem_available_kb"] = int(match.group())
+    except (FileNotFoundError, OSError):
+        pass
+
+    return resources
+
+
+def detect_flatpak():
+    """check if flatpak is installed on the system"""
+    return _cmd_exists("flatpak")
+
+
+def detect_snap():
+    """check if snap is installed on the system"""
+    return _cmd_exists("snap")
+
+
 if __name__ == "__main__":
     report = system_report()
     print("system info:")
