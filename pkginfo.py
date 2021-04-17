@@ -57,6 +57,79 @@ def parse_package_info(output, pkg_mgr_cmd):
     return normalized
 
 
+def resolve_dependencies(package_name, pkg_mgr_cmd=None):
+    """resolve and return dependency names for a package.
+
+    parses common dependency output patterns from package managers.
+    returns a list of dependency package names.
+    """
+    if not pkg_mgr_cmd:
+        try:
+            from detect_os import get_package_manager
+            mgr = get_package_manager()
+            pkg_mgr_cmd = mgr.get("command")
+        except ImportError:
+            return []
+
+    if not pkg_mgr_cmd:
+        return []
+
+    details = get_package_details(package_name, pkg_mgr_cmd)
+    if not details:
+        return []
+
+    deps_str = details.get("depends", "")
+    if not deps_str:
+        return []
+
+    deps = []
+    for dep in deps_str.replace(",", " ").split():
+        dep = dep.strip()
+        if not dep or dep.startswith(("(", "<", ">", "=")):
+            continue
+        # strip version constraints like pkg>=1.0
+        clean = dep.split(">=")[0].split("<=")[0].split("=")[0].split(">")[0].split("<")[0]
+        if clean and clean not in deps:
+            deps.append(clean)
+    return deps
+
+
+def get_rating(package_name, history_fn=None):
+    """return a simple rating dict for a package based on usage history.
+
+    uses install/update frequency from history as a popularity proxy.
+    history_fn: optional callable that returns history entries for the package.
+    """
+    action_count = 0
+    try:
+        if history_fn:
+            entries = history_fn(package_name)
+        else:
+            from history import get_by_package
+            entries = get_by_package(package_name)
+        action_count = len(entries)
+    except (ImportError, Exception):
+        entries = []
+
+    if action_count >= 10:
+        score = 5
+    elif action_count >= 5:
+        score = 4
+    elif action_count >= 3:
+        score = 3
+    elif action_count >= 1:
+        score = 2
+    else:
+        score = 1
+
+    return {
+        "package": package_name,
+        "score": score,
+        "max_score": 5,
+        "action_count": action_count,
+    }
+
+
 class PackageInfoPanel:
     """detailed package information panel"""
 
