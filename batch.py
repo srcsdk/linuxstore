@@ -78,6 +78,23 @@ def format_batch_results(results):
     return "\n".join(lines)
 
 
+def confirm_uninstall(package_name, dependents):
+    """check if other packages depend on this one and return a warning message.
+
+    package_name: the package to uninstall.
+    dependents: list of package names that depend on this package.
+    returns a warning string if there are dependents, empty string otherwise.
+    """
+    if not dependents:
+        return ""
+
+    dep_list = ", ".join(dependents[:10])
+    msg = f"warning: {len(dependents)} package(s) depend on {package_name}: {dep_list}"
+    if len(dependents) > 10:
+        msg += f" (and {len(dependents) - 10} more)"
+    return msg
+
+
 def load_json_list(filepath):
     """load a package list from json format"""
     with open(filepath) as f:
