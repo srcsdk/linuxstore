@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="linuxstore",
-    version="0.1.0",
+    version="1.0.0",
     author="srcsdk",
     author_email="srcsdk@users.noreply.github.com",
     description="gui package manager for linux",
