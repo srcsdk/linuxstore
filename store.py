@@ -571,6 +571,83 @@ def check_updates():
         return []
 
 
+REPOS_FILE = os.path.join(os.path.dirname(__file__), "repositories.json")
+
+
+def search_packages(query, packages):
+    """fuzzy search packages by name and description (case insensitive substring match)"""
+    if not query:
+        return packages
+
+    query_lower = query.lower()
+    results = []
+    for pkg in packages:
+        name = pkg.get("name", "").lower()
+        desc = pkg.get("desc", "").lower()
+        if query_lower in name or query_lower in desc:
+            results.append(pkg)
+
+    results.sort(key=lambda p: (
+        0 if query_lower in p.get("name", "").lower() else 1,
+        p.get("name", ""),
+    ))
+    return results
+
+
+def check_updates_installed(installed_packages):
+    """compare installed versions against available and return updatable packages.
+
+    installed_packages: list of dicts with 'name' and 'version' keys.
+    returns list of packages that have updates available.
+    """
+    mgr = _get_pkg_mgr()
+    cmd = mgr.get("command")
+    if not cmd:
+        return []
+
+    available_updates = check_updates()
+    update_names = {u["name"] for u in available_updates}
+
+    updatable = []
+    for pkg in installed_packages:
+        name = pkg.get("name", "")
+        if name in update_names:
+            match = next((u for u in available_updates if u["name"] == name), None)
+            if match:
+                updatable.append({
+                    "name": name,
+                    "current": pkg.get("version", match.get("current", "")),
+                    "new": match.get("new", ""),
+                })
+    return updatable
+
+
+def add_repository(name, url):
+    """add a custom repository to the local repo list"""
+    repos = list_repositories()
+    for repo in repos:
+        if repo["name"] == name:
+            repo["url"] = url
+            break
+    else:
+        repos.append({"name": name, "url": url})
+
+    with open(REPOS_FILE, "w") as f:
+        json.dump(repos, f, indent=2)
+    return repos
+
+
+def list_repositories():
+    """list all custom repositories from the local repo file"""
+    if not os.path.exists(REPOS_FILE):
+        return []
+    try:
+        with open(REPOS_FILE, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
 def format_update_summary(updates):
     """format update list for display"""
     if not updates:
