@@ -84,3 +84,28 @@ def create_tab_bar(parent, tabs, callback):
         buttons[tab] = btn
 
     return buttons
+
+
+def responsive_grid(items, columns=None):
+    """arrange items into a grid layout (list of lists).
+
+    items: flat list of items to arrange.
+    columns: number of columns. if none, auto-detect from terminal width.
+    returns list of rows, where each row is a list of items.
+    """
+    if not items:
+        return []
+
+    if columns is None:
+        try:
+            import shutil
+            term_width = shutil.get_terminal_size((80, 24)).columns
+            columns = max(1, term_width // 30)
+        except (ValueError, OSError):
+            columns = 3
+
+    columns = max(1, columns)
+    grid = []
+    for i in range(0, len(items), columns):
+        grid.append(items[i:i + columns])
+    return grid
