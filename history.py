@@ -80,6 +80,26 @@ def format_history(entries, limit=20):
     return "\n".join(lines)
 
 
+def get_changelog(package_name):
+    """return changelog entries for a package based on its action history.
+
+    formats history entries into a changelog-style list of dicts.
+    """
+    entries = get_by_package(package_name)
+    if not entries:
+        return []
+
+    changelog = []
+    for entry in reversed(entries):
+        changelog.append({
+            "date": entry.get("timestamp", ""),
+            "action": entry.get("action", ""),
+            "success": entry.get("success", False),
+            "details": entry.get("details", ""),
+        })
+    return changelog
+
+
 def stats():
     """get history statistics"""
     entries = load_history()
