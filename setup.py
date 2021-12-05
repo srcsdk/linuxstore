@@ -2,12 +2,14 @@ from setuptools import setup
 
 setup(
     name="linuxstore",
-    version="1.0.0",
+    version="1.1.0",
     author="srcsdk",
     author_email="srcsdk@users.noreply.github.com",
     description="gui package manager for linux",
     url="https://github.com/srcsdk/linuxstore",
-    py_modules=["store", "layout", "detect_os"],
+    py_modules=["store", "layout", "detect_os", "shortcuts", "pkginfo",
+                 "favorites", "batch", "sorting", "themes", "queue_mgr",
+                 "history"],
     python_requires=">=3.8",
     entry_points={
         "console_scripts": [
