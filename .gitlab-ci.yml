@@ -20,4 +20,5 @@ lint:
 compile_check:
   stage: test
   script:
+    - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - find . -name "*.py" -exec python -m py_compile {} \;
