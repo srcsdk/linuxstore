@@ -197,7 +197,7 @@ def get_install_command(package_name, pkg_manager):
         "xbps-install": f"sudo xbps-install -y {package_name}",
         "emerge": f"sudo emerge {package_name}",
     }
-    return commands.get(pkg_manager, f"echo 'unknown package manager'")
+    return commands.get(pkg_manager, "echo 'unknown package manager'")
 
 
 def system_report():

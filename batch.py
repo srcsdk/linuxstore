@@ -2,8 +2,6 @@
 """batch install and export for package lists"""
 
 import json
-import os
-import sys
 import time
 
 
@@ -21,7 +19,7 @@ def load_package_list(filepath):
 def save_package_list(packages, filepath):
     """save package names to a text file"""
     with open(filepath, "w") as f:
-        f.write(f"# linuxstore package list\n")
+        f.write("# linuxstore package list\n")
         f.write(f"# exported {time.strftime('%Y-%m-%d %H:%M')}\n")
         for pkg in sorted(packages):
             f.write(f"{pkg}\n")
@@ -67,7 +65,7 @@ def export_installed(list_fn, filepath):
 def format_batch_results(results):
     """format batch install results for display"""
     lines = [
-        f"batch install complete:",
+        "batch install complete:",
         f"  installed: {results['installed']}/{results['total']}",
         f"  failed:    {results['failed']}",
     ]

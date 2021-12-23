@@ -61,10 +61,15 @@ def setup_shortcuts(app):
     """set up keyboard shortcuts for a PackageStore instance"""
     mgr = ShortcutManager(app.root)
 
-    mgr.register("focus_search", lambda: app.search_var.set("") or
-                  app.root.nametowidget(
-                      app.root.winfo_children()[0].winfo_children()[-1]
-                  ).focus_set() if app.root.winfo_children() else None)
+    def focus_search():
+        app.search_var.set("")
+        children = app.root.winfo_children()
+        if children:
+            inner = children[0].winfo_children()
+            if inner:
+                inner[-1].focus_set()
+
+    mgr.register("focus_search", focus_search)
     mgr.register("install_selected", lambda: None)
     mgr.register("refresh", lambda: app.show_tab(app.current_view))
     mgr.register("quit", app.root.quit)

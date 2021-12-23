@@ -2,7 +2,6 @@
 """favorites/bookmarks for packages with persistent storage"""
 
 import json
-import os
 from pathlib import Path
 
 FAVORITES_DIR = Path.home() / ".config" / "linuxstore"
