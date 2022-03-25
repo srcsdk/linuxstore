@@ -1,96 +1,103 @@
 #!/usr/bin/env python3
-"""package update checker with version comparison"""
+"""check for available package updates"""
 
-import re
 import subprocess
+import re
 
 
-def parse_version(version_str):
-    """parse version string into comparable tuple."""
-    parts = re.findall(r"\d+", version_str)
-    return tuple(int(p) for p in parts) if parts else (0,)
-
-
-def compare_versions(v1, v2):
-    """compare two version strings.
-
-    returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
-    """
-    t1 = parse_version(v1)
-    t2 = parse_version(v2)
-    if t1 < t2:
-        return -1
-    elif t1 > t2:
-        return 1
-    return 0
-
-
-def check_updates_pacman():
-    """check for available updates using pacman."""
+def check_apt_updates():
+    """check for available apt updates."""
     try:
-        result = subprocess.run(
-            ["pacman", "-Qu"],
-            capture_output=True, text=True, timeout=30,
+        output = subprocess.check_output(
+            ["apt", "list", "--upgradable"],
+            stderr=subprocess.DEVNULL,
+            text=True,
         )
         updates = []
-        for line in result.stdout.strip().split("\n"):
-            if not line.strip():
-                continue
+        for line in output.splitlines():
+            if "/" in line and "upgradable" in line.lower():
+                parts = line.split("/")
+                name = parts[0]
+                version_match = re.search(r"(\S+)\s+\[", line)
+                version = version_match.group(1) if version_match else ""
+                updates.append({"name": name, "version": version})
+        return updates
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+
+
+def check_pacman_updates():
+    """check for available pacman updates."""
+    try:
+        output = subprocess.check_output(
+            ["checkupdates"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        updates = []
+        for line in output.splitlines():
             parts = line.split()
             if len(parts) >= 4:
                 updates.append({
-                    "package": parts[0],
+                    "name": parts[0],
                     "current": parts[1],
-                    "available": parts[3],
+                    "new": parts[3],
                 })
         return updates
-    except (subprocess.TimeoutExpired, OSError):
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return []
 
 
-def check_updates_apt():
-    """check for available updates using apt."""
+def check_dnf_updates():
+    """check for available dnf updates."""
     try:
-        subprocess.run(
-            ["apt-get", "update", "-qq"],
-            capture_output=True, timeout=60,
-        )
-        result = subprocess.run(
-            ["apt", "list", "--upgradable"],
-            capture_output=True, text=True, timeout=30,
+        output = subprocess.check_output(
+            ["dnf", "check-update", "--quiet"],
+            stderr=subprocess.DEVNULL,
+            text=True,
         )
         updates = []
-        for line in result.stdout.strip().split("\n"):
-            if "/" not in line:
-                continue
-            name = line.split("/")[0]
-            version_match = re.search(r"(\S+)\s+\[.*?:\s*(\S+)", line)
-            if version_match:
-                updates.append({
-                    "package": name,
-                    "available": version_match.group(1),
-                    "current": version_match.group(2),
-                })
+        for line in output.splitlines():
+            parts = line.split()
+            if len(parts) >= 3 and "." in parts[0]:
+                name = parts[0].rsplit(".", 1)[0]
+                updates.append({"name": name, "version": parts[1]})
         return updates
-    except (subprocess.TimeoutExpired, OSError):
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return []
 
 
-def format_updates(updates):
+def check_updates(package_manager=None):
+    """check for updates using detected or specified package manager."""
+    checkers = {
+        "apt": check_apt_updates,
+        "pacman": check_pacman_updates,
+        "dnf": check_dnf_updates,
+    }
+    if package_manager and package_manager in checkers:
+        return checkers[package_manager]()
+    for name, checker in checkers.items():
+        result = checker()
+        if result:
+            return result
+    return []
+
+
+def format_updates(updates, limit=20):
     """format update list for display."""
-    if not updates:
-        return "all packages up to date"
-    lines = [f"  {len(updates)} updates available:"]
-    for u in updates:
-        lines.append(
-            f"    {u['package']}: {u['current']} -> {u['available']}"
-        )
+    lines = [f"{len(updates)} updates available:"]
+    for update in updates[:limit]:
+        name = update.get("name", "unknown")
+        version = update.get("version", update.get("new", ""))
+        lines.append(f"  {name} -> {version}")
+    if len(updates) > limit:
+        lines.append(f"  ... and {len(updates) - limit} more")
     return "\n".join(lines)
 
 
 if __name__ == "__main__":
-    print("checking for updates...")
-    updates = check_updates_pacman()
-    if not updates:
-        updates = check_updates_apt()
-    print(format_updates(updates))
+    updates = check_updates()
+    if updates:
+        print(format_updates(updates))
+    else:
+        print("no updates available (or package manager not found)")
