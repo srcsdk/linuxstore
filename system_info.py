@@ -3,7 +3,6 @@
 
 import os
 import platform
-import subprocess
 
 
 def cpu_info():
