@@ -1,76 +1,106 @@
 #!/usr/bin/env python3
-"""system service management utilities"""
+"""systemd service manager integration"""
 
 import subprocess
 
 
-def list_services(active_only=False):
+def list_services(state=None):
     """list systemd services."""
-    cmd = ["systemctl", "list-units", "--type=service", "--no-pager"]
-    if active_only:
-        cmd.append("--state=active")
+    cmd = ["systemctl", "list-units", "--type=service", "--no-pager", "--plain"]
+    if state:
+        cmd.extend([f"--state={state}"])
     try:
-        output = subprocess.check_output(
-            cmd, stderr=subprocess.DEVNULL, text=True,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         services = []
-        for line in output.splitlines():
+        for line in result.stdout.strip().splitlines():
             parts = line.split()
             if len(parts) >= 4 and parts[0].endswith(".service"):
                 services.append({
-                    "name": parts[0],
+                    "name": parts[0].replace(".service", ""),
                     "load": parts[1],
                     "active": parts[2],
                     "sub": parts[3],
                 })
         return services
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
 
 
 def service_status(name):
-    """get detailed status of a service."""
-    try:
-        output = subprocess.check_output(
-            ["systemctl", "status", name, "--no-pager"],
-            stderr=subprocess.DEVNULL, text=True,
-        )
-        return {"name": name, "output": output, "running": True}
-    except subprocess.CalledProcessError as e:
-        return {"name": name, "output": e.output or "", "running": False}
-    except FileNotFoundError:
-        return {"name": name, "output": "", "running": False}
-
-
-def is_enabled(name):
-    """check if a service is enabled."""
+    """get status of a specific service."""
     try:
         result = subprocess.run(
-            ["systemctl", "is-enabled", name],
-            capture_output=True, text=True,
+            ["systemctl", "status", name, "--no-pager"],
+            capture_output=True, text=True, timeout=10,
         )
-        return result.stdout.strip() == "enabled"
-    except FileNotFoundError:
+        is_active = subprocess.run(
+            ["systemctl", "is-active", name],
+            capture_output=True, text=True, timeout=5,
+        )
+        is_enabled = subprocess.run(
+            ["systemctl", "is-enabled", name],
+            capture_output=True, text=True, timeout=5,
+        )
+        return {
+            "name": name,
+            "active": is_active.stdout.strip(),
+            "enabled": is_enabled.stdout.strip(),
+            "output": result.stdout,
+        }
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"name": name, "active": "unknown", "enabled": "unknown"}
+
+
+def start_service(name):
+    """start a systemd service."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "start", name],
+            capture_output=True, timeout=15,
+        )
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
         return False
 
 
-def service_summary():
-    """get summary of service states."""
-    services = list_services()
-    active = sum(1 for s in services if s["active"] == "active")
-    failed = sum(1 for s in services if s["sub"] == "failed")
-    return {
-        "total": len(services),
-        "active": active,
-        "failed": failed,
-        "inactive": len(services) - active,
-    }
+def stop_service(name):
+    """stop a systemd service."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "stop", name],
+            capture_output=True, timeout=15,
+        )
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def restart_service(name):
+    """restart a systemd service."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "restart", name],
+            capture_output=True, timeout=15,
+        )
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def enable_service(name):
+    """enable a service to start on boot."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "enable", name],
+            capture_output=True, timeout=15,
+        )
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
 
 
 if __name__ == "__main__":
-    summary = service_summary()
-    print(f"services: {summary}")
-    services = list_services(active_only=True)
-    print(f"\nactive services: {len(services)}")
-    for s in services[:5]:
-        print(f"  {s['name']}: {s['active']} ({s['sub']})")
+    services = list_services("running")
+    print(f"running services: {len(services)}")
+    for s in services[:10]:
+        print(f"  {s['name']:30s} {s['active']}")
