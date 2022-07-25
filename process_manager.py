@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """system process management utilities"""
 
-import os
 import subprocess
 
 
