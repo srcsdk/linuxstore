@@ -2,7 +2,6 @@
 """snap package management integration"""
 
 import subprocess
-import json
 
 
 def is_available():

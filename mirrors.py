@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """mirror speed testing and selection"""
 
-import subprocess
 import time
 from urllib.request import urlopen
 from urllib.error import URLError

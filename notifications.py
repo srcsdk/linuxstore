@@ -2,7 +2,6 @@
 """desktop notifications for package updates"""
 
 import subprocess
-import os
 
 
 def send_notification(title, message, urgency="normal"):

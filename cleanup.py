@@ -15,7 +15,7 @@ def find_orphans():
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             if result.returncode == 0:
-                names = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+                names = [x.strip() for x in result.stdout.splitlines() if x.strip()]
                 return [{"name": n, "manager": mgr} for n in names]
         except (FileNotFoundError, subprocess.TimeoutExpired):
             continue

@@ -2,7 +2,6 @@
 """hardware driver detection and management"""
 
 import subprocess
-import os
 
 
 def detect_hardware():

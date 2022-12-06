@@ -4,7 +4,6 @@
 import subprocess
 import os
 import re
-from datetime import datetime
 
 
 def get_install_history(limit=50):

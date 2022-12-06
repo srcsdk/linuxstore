@@ -68,6 +68,6 @@ if __name__ == "__main__":
         print(f"  {r['name']:20s} v{r['version']:15s} votes:{r['votes']}")
     pkg = info("yay")
     if pkg:
-        print(f"\nyay details:")
+        print("\nyay details:")
         print(f"  maintainer: {pkg['maintainer']}")
         print(f"  depends: {', '.join(pkg['depends'][:5])}")

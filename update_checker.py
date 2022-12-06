@@ -2,7 +2,6 @@
 """system update checker for all package managers"""
 
 import subprocess
-import time
 
 
 def check_apt_updates():

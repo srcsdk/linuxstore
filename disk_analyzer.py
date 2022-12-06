@@ -2,7 +2,6 @@
 """analyze disk usage by installed packages"""
 
 import subprocess
-import os
 
 
 def package_sizes():
