@@ -15,7 +15,7 @@ def check_display():
 def check_tkinter():
     """check if tkinter is available."""
     try:
-        import tkinter
+        import tkinter  # noqa: F401
         return True
     except ImportError:
         return False
@@ -56,7 +56,6 @@ def launch_gui(catalog=None, installer=None):
 
 def _populate_tab(frame, tab_type, catalog):
     """populate a tab with package list."""
-    import tkinter as tk
     from tkinter import ttk
     tree = ttk.Treeview(frame, columns=("package", "category", "status"),
                         show="headings", height=20)
