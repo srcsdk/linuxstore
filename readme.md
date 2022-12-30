@@ -22,5 +22,3 @@ browse packages by category: essential, popular, or all. search by name or descr
 - `layout.py` - interface layout
 - `detect_os.py` - os and package manager detection
 - `packages.json` - package database
-
-https://github.com/srcsdk/linuxstore
